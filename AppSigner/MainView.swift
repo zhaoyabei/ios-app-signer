@@ -746,6 +746,10 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 //MARK: Bundle variables setup
                 let appBundlePath = payloadDirectory.stringByAppendingPathComponent(file)
                 let appBundleInfoPlist = appBundlePath.stringByAppendingPathComponent("Info.plist")
+                var cnPath = ""
+                if fileManager.fileExists(atPath: appBundlePath.stringByAppendingPathComponent("zh_CN.lproj")){
+                    cnPath = appBundlePath.stringByAppendingPathComponent("zh_CN.lproj").stringByAppendingPathComponent("InfoPlist.strings")
+                }
                 let appBundleProvisioningFilePath = appBundlePath.stringByAppendingPathComponent("embedded.mobileprovision")
                 let useAppBundleProfile = (provisioningFile == nil && fileManager.fileExists(atPath: appBundleProvisioningFilePath))
                 
@@ -842,12 +846,26 @@ class MainView: NSView, URLSessionDataDelegate, URLSessionDelegate, URLSessionDo
                 if newDisplayName != "" {
                     setStatus("Changing Display Name to \(newDisplayName))")
                     let displayNameChangeTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleDisplayName", newDisplayName])
+                    
+                    _ = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",appBundleInfoPlist,"CFBundleName", newDisplayName])
                     if displayNameChangeTask.status != 0 {
                         setStatus("Error changing display name")
                         Log.write(displayNameChangeTask.output)
                         cleanup(tempFolder); return
                     }
                 }
+                
+                if cnPath.isEmpty == false{
+                    try? fileManager.moveItem(atPath: cnPath, toPath: cnPath.replacingOccurrences(of: ".strings", with: ".plist"))
+                    let displayNameChangeTask = Process().execute(defaultsPath, workingDirectory: nil, arguments: ["write",cnPath,"CFBundleDisplayName", newDisplayName])
+                    if displayNameChangeTask.status != 0 {
+                        setStatus("Error changing display name in local string file")
+                        Log.write(displayNameChangeTask.output)
+                        cleanup(tempFolder); return
+                    }
+                    try? fileManager.moveItem(atPath: cnPath, toPath: cnPath.replacingOccurrences(of: ".plist", with: ".strings" ))
+                }
+                
                 
                 //MARK: Change Version
                 if newVersion != "" {
